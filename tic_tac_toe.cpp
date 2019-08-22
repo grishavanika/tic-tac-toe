@@ -368,11 +368,72 @@ void AbortOnSDLError(const void* resource)
     }
 }
 
+struct TickData
+{
+    Game& game;
+    SDL_Renderer* renderer;
+};
+
+void MainTick(void* data_ptr)
+{
+    TickData* data = static_cast<TickData*>(data_ptr);
+    Game& game = data->game;
+    SDL_Renderer* renderer = data->renderer;
+
+    SDL_Event e{};
+    while (SDL_PollEvent(&e))
+    {
+        switch (e.type)
+        {
+        case SDL_QUIT:
+            game.state_ = State::Quit;
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+            HandleWindowClick(game, e.button.y, e.button.x);
+            break;
+        }
+    }
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0xff);
+    SDL_RenderClear(renderer);
+
+    RenderGame(renderer, game);
+
+    SDL_RenderPresent(renderer);
+}
+
+#if (__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+
+void MainLoop(TickData& data)
+{
+    emscripten_set_main_loop_arg(&MainTick
+        , &data
+        , -1  // use whatever FPS browser needs
+        , 1); // simulate infinite loop. Don't destroy objects on stack (?)
+}
+
+int main(int, char**)
+{
+
+#else
+
 #include <Windows.h>
 #include <tchar.h>
 
+void MainLoop(TickData& data)
+{
+    while (data.game.state_ != State::Quit)
+    {
+        MainTick(&data);
+    }
+}
+
 int WINAPI _tWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPTSTR, _In_ int)
 {
+    SDL_SetMainReady();
+#endif
+
     // Initialize SDL. Ignore any errors and leak resources
     AbortOnSDLError(SDL_Init(SDL_INIT_VIDEO));
 
@@ -386,8 +447,7 @@ int WINAPI _tWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPTSTR, _In_ int)
     AbortOnSDLError(window);
     SDL_Renderer* renderer = SDL_CreateRenderer(
         window
-        ,
-        -1 // first supporting renderer
+        , -1 // first supporting renderer
         , SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     AbortOnSDLError(renderer);
 
@@ -397,29 +457,8 @@ int WINAPI _tWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPTSTR, _In_ int)
           , {Cell::Empty, Cell::Empty, Cell::Empty}
         }};
 
-    SDL_Event e{};
-    while (game.state_ != State::Quit)
-    {
-        while (SDL_PollEvent(&e))
-        {
-            switch (e.type)
-            {
-            case SDL_QUIT:
-                game.state_ = State::Quit;
-                break;
-            case SDL_MOUSEBUTTONDOWN:
-                HandleWindowClick(game, e.button.y, e.button.x);
-                break;
-            }
-        }
-
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0xff);
-        SDL_RenderClear(renderer);
-
-        RenderGame(renderer, game);
-
-        SDL_RenderPresent(renderer);
-    }
+    TickData data{game, renderer};
+    MainLoop(data);
 
     return 0;
 }
