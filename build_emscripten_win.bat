@@ -26,7 +26,7 @@ cd /d %em_root%
 call emsdk_env.bat
 cd /d %~dp0
 
-echo Building final tic_tac_toe_win.html...
+echo Building ...
 
 call emcc tic_tac_toe.cpp ^
 	-O2 ^
@@ -34,7 +34,7 @@ call emcc tic_tac_toe.cpp ^
 	-ID:\Downloads\SDL2_gfx-1.0.4\bin\include ^
 	-LD:\Downloads\SDL2_gfx-1.0.4\bin\lib -lSDL2_gfx ^
 	-std=c++14 ^
-	-o tic_tac_toe_win.html
+	-o tic_tac_toe_win.js
 
 echo Running...
 ::emrun --no_browser --port 8080 .

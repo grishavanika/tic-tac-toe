@@ -5,4 +5,4 @@
 *.html
 *.js
 *.wasm
-
+!tic_tac_toe_win.html
